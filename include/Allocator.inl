@@ -14,8 +14,8 @@ BuddyAllocator<lo,hi>::BuddyAllocator()
         memset(heap_begin,0,HEAP_SIZE());
         memset(free_table,0,sizeof(free_table));
         memset(split_table,0,sizeof(split_table));
-        memset(free_list,0,sizeof(free_list));
-        insert_after(free_list[hi], heap_begin);
+        memset(busy_list,0,sizeof(busy_list));
+        insert_after(busy_list[hi], heap_begin);
     }
 }
 
@@ -53,12 +53,12 @@ void * BuddyAllocator<lo,hi>::allocate(size_t _size)
     k = (k > lo ? k : lo);
     uint8_t order = k;
     //fetch free address from free lists
-    while(!free_list[k]) {
+    while(!busy_list[k]) {
         k++;
         if (k > hi)
             return nullptr;
     }
-    ptr_t block = free_list[k];
+    ptr_t block = busy_list[k];
     remove(block);
     size_t block_id = index_in_tree(block, hi - k);
     while(k-- > order) {
@@ -66,7 +66,7 @@ void * BuddyAllocator<lo,hi>::allocate(size_t _size)
         toggle_free(block_id);
         void * buddy_addr = buddy_address(block, k); //(void*)(uintptr_t(block) + ((uintptr_t)1 << k))
         block_id = index_in_tree(block, hi - k); //lchild(block_id);
-        insert_after(free_list[k], buddy_addr);
+        insert_after(busy_list[k], buddy_addr);
     }
     toggle_free(block_id);
     return block;
@@ -75,7 +75,7 @@ void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 // void deallocate_rec(void * block, size_t block_id)
 // {
 //     toggle_free(block_id);
-//     if (buddy_free(block_id) || block_id == 0) {
+//     if (pair_free(block_id) || block_id == 0) {
 //         insert(block);
 //         return;
 //     } else {
@@ -107,7 +107,7 @@ void BuddyAllocator<lo,hi>::deallocate(void * ptr)
     int i = n;
     for (; i < hi; i++) {
         toggle_free(block_id);
-        if (buddy_free(block_id))
+        if (pair_free(block_id))
             break;
         void * buddy_of_block = buddy_address(block, i);
         remove(buddy_of_block);
@@ -117,7 +117,7 @@ void BuddyAllocator<lo,hi>::deallocate(void * ptr)
         block_id = parent(block_id);
         toggle_split(block_id);
     }
-    insert_after(free_list[i], block);
+    insert_after(busy_list[i], block);
 }
 
 template<uint8_t lo, uint8_t hi>
@@ -132,7 +132,7 @@ void BuddyAllocator<lo,hi>::toggle_split(size_t bit_id)
 }
 
 template<uint8_t lo, uint8_t hi>
-bool BuddyAllocator<lo,hi>::buddy_free(size_t buddy_id)
+bool BuddyAllocator<lo,hi>::pair_free(size_t buddy_id)
 {
     const size_t bit_id = (buddy_id + 1) >> 1;
     return free_table[bit_id>>3] & (1 << (bit_id%8));
@@ -213,7 +213,7 @@ void BuddyAllocator<lo,hi>::print_lists()
 {
     for (int i = 0; i < hi; i++) {
         std::cout << "free_list[" << std::dec << i << "]: ";
-        Links * current = static_cast<Links*>(free_list[i]);
+        Links * current = static_cast<Links*>(busy_list[i]);
         while (current != nullptr) {
             std::cout << std::hex << (uintptr_t)current << " ";
             current = static_cast<Links*>(current->next);

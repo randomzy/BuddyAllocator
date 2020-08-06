@@ -7,14 +7,14 @@ void testToggles()
     BuddyAllocator<lo,hi> allocator;
     size_t MAX_ID = (1 << allocator.LEVELS_CNT()) - 2;
     for (size_t i = 1; i <= MAX_ID; i++) {
-        assert(allocator.buddy_free(i) == 0);
+        assert(allocator.pair_free(i) == 0);
     }
     for (size_t i = 1; i <= MAX_ID; i++) {
         allocator.toggle_free(i);
     }
     allocator.print_free();
     for (size_t i = 1; i <= MAX_ID; i++) {
-        assert(allocator.buddy_free(i) == 0);
+        assert(allocator.pair_free(i) == 0);
     }
     allocator.print_free();
 }

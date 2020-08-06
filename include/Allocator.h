@@ -4,6 +4,12 @@
 #include <cinttypes>
 #include <climits>
 #include <cstdlib>
+#include <cstring>
+
+enum class ERR_TYPE: uint8_t
+{
+    
+};
 
 template<uint8_t low_order, uint8_t high_order>
 class BuddyAllocator
@@ -12,6 +18,7 @@ public:
     void * allocate(size_t size);
     void deallocate(void * ptr, size_t size);
     void deallocate(void * ptr);
+    void init();
 
     BuddyAllocator();
     ~BuddyAllocator();
@@ -28,14 +35,25 @@ public:
 
 // private:
     using ptr_t = void *;
+    struct Pool
+    {
+        ptr_t buddy_free[high_order+1];
+        ptr_t buddy_busy[high_order+1];
+        char heap[HEAP_SIZE()];
+        char split_table[TABLE_SIZE()];
+        char free_table[TABLE_SIZE()];
+    };
+
+    Pool * pool = nullptr;
+
     ptr_t heap_begin = nullptr;
-    ptr_t free_list[high_order + 1];
+    ptr_t busy_list[high_order + 1];
     char split_table[TABLE_SIZE()];
     char free_table[TABLE_SIZE()];
 
     bool is_split(size_t);
     void toggle_split(size_t);
-    bool buddy_free(size_t);
+    bool pair_free(size_t);
     void toggle_free(size_t);
     size_t index_in_level(ptr_t ptr, int level);
     size_t index_in_tree(ptr_t ptr, int level);
