@@ -11,6 +11,15 @@ enum class ERR_TYPE: uint8_t
     
 };
 
+
+template<uint8_t low_order, uint8_t high_order>
+class BuddyAllocatorBase
+{
+public:
+
+private:
+};
+
 template<uint8_t low_order, uint8_t high_order>
 class BuddyAllocator
 {
@@ -25,9 +34,9 @@ public:
     BuddyAllocator(BuddyAllocator const &) = delete;
     BuddyAllocator & operator = (BuddyAllocator const &) = delete;
 
-    constexpr static uint8_t LEVELS_CNT() { return high_order - low_order + 1; }
-    constexpr static size_t HEAP_SIZE() { return (size_t)1 << high_order; }
-    constexpr static size_t TABLE_SIZE() { return ((size_t)1 << ((LEVELS_CNT() < 4 ? 4 : LEVELS_CNT()) - 1 - 3)); }
+    constexpr static uint8_t LEVELS_CNT = high_order - low_order + 1;
+    constexpr static size_t  HEAP_SIZE   = (size_t)1 << high_order;
+    constexpr static size_t  TABLE_SIZE  = (size_t)1 << (LEVELS_CNT < 4 ? 4 : LEVELS_CNT - 1 - 3);
 
     static_assert(low_order < high_order, "minimum block must be smaller than heap size");
     static_assert(high_order < sizeof(void*)*CHAR_WIDTH - 1, "heap order cannot exceed max memory order");
@@ -39,17 +48,17 @@ public:
     {
         ptr_t buddy_free[high_order+1];
         ptr_t buddy_busy[high_order+1];
-        char heap[HEAP_SIZE()];
-        char split_table[TABLE_SIZE()];
-        char free_table[TABLE_SIZE()];
+        char heap[HEAP_SIZE];
+        char split_table[TABLE_SIZE];
+        char free_table[TABLE_SIZE];
     };
 
     Pool * pool = nullptr;
 
     ptr_t heap_begin = nullptr;
     ptr_t busy_list[high_order + 1];
-    char split_table[TABLE_SIZE()];
-    char free_table[TABLE_SIZE()];
+    char split_table[TABLE_SIZE];
+    char free_table[TABLE_SIZE];
 
     bool is_split(size_t);
     void toggle_split(size_t);

@@ -5,7 +5,7 @@ template<uint8_t lo, uint8_t hi>
 void testToggles()
 {
     BuddyAllocator<lo,hi> allocator;
-    size_t MAX_ID = (1 << allocator.LEVELS_CNT()) - 2;
+    size_t MAX_ID = (1 << allocator.LEVELS_CNT) - 2;
     for (size_t i = 1; i <= MAX_ID; i++) {
         assert(allocator.pair_free(i) == 0);
     }
@@ -53,7 +53,7 @@ void testStatic()
 {
     BuddyAllocator<5,10> a1;
     BuddyAllocator<4,11> a2;
-    assert((BuddyAllocator<4,10>::HEAP_SIZE()) != (BuddyAllocator<5,11>::HEAP_SIZE()));
+    assert((BuddyAllocator<4,10>::HEAP_SIZE != (BuddyAllocator<5,11>::HEAP_SIZE)));
 }
 
 int main()

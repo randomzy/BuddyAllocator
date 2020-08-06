@@ -5,13 +5,13 @@
 
 template<uint8_t lo, uint8_t hi>
 BuddyAllocator<lo,hi>::BuddyAllocator()
-    : heap_begin(malloc(HEAP_SIZE()))
+    : heap_begin(malloc(HEAP_SIZE))
 {
     if (!heap_begin) {
         //update errorCode
     } else {
-        std::cout << HEAP_SIZE() << std::endl << TABLE_SIZE() << std::endl << LEVELS_CNT() << std::endl;
-        memset(heap_begin,0,HEAP_SIZE());
+        std::cout << HEAP_SIZE << std::endl << TABLE_SIZE << std::endl << LEVELS_CNT << std::endl;
+        memset(heap_begin,0,HEAP_SIZE);
         memset(free_table,0,sizeof(free_table));
         memset(split_table,0,sizeof(split_table));
         memset(busy_list,0,sizeof(busy_list));
@@ -47,7 +47,7 @@ uint8_t log2_ceil(size_t n)
 template<uint8_t lo, uint8_t hi>
 void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 {
-    if (_size > HEAP_SIZE())
+    if (_size > HEAP_SIZE)
         return nullptr;
     uint8_t k = log2_ceil(_size);
     k = (k > lo ? k : lo);
@@ -92,7 +92,7 @@ void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 template<uint8_t lo, uint8_t hi>
 void BuddyAllocator<lo,hi>::deallocate(void * ptr)
 {
-    if ((uintptr_t)ptr < (uintptr_t)heap_begin or uintptr_t(ptr) > (uintptr_t)heap_begin + HEAP_SIZE())
+    if ((uintptr_t)ptr < (uintptr_t)heap_begin or uintptr_t(ptr) > (uintptr_t)heap_begin + HEAP_SIZE)
         return;
     int n = hi;
     int block_id;
@@ -147,7 +147,7 @@ void BuddyAllocator<lo,hi>::toggle_free(size_t buddy_id)
 template<uint8_t lo, uint8_t hi>
 size_t BuddyAllocator<lo,hi>::index_in_level(ptr_t ptr, int level)
 {
-    return ( (uintptr_t)ptr - (uintptr_t)heap_begin )/( HEAP_SIZE() >> level );
+    return ( (uintptr_t)ptr - (uintptr_t)heap_begin )/( HEAP_SIZE >> level );
 }
 
 template<uint8_t lo, uint8_t hi>
@@ -226,7 +226,7 @@ void BuddyAllocator<lo,hi>::print_lists()
 template<uint8_t lo, uint8_t hi>
 void BuddyAllocator<lo,hi>::print_free()
 {
-    for (uint8_t i = 0; i < TABLE_SIZE(); i++) {
+    for (uint8_t i = 0; i < TABLE_SIZE; i++) {
         for (int j = 0; j < 8; j++) {
             std::cout << "id " << i*8 + j << " " << int((free_table[i] & (1 << j)) >> j) << std::endl;
         }
@@ -236,7 +236,7 @@ void BuddyAllocator<lo,hi>::print_free()
 template<uint8_t lo, uint8_t hi>
 void BuddyAllocator<lo,hi>::print_split()
 {
-    for (uint8_t i = 0; i < TABLE_SIZE(); i++) {
+    for (uint8_t i = 0; i < TABLE_SIZE; i++) {
         for (int j = 0; j < 8; j++) {
             std::cout << "block " << i*8 + j << " " << int((split_table[i] & (1 << j)) >> j) << std::endl;
         }
