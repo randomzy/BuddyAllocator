@@ -1,5 +1,6 @@
 #include "Allocator.h"
 #include <cassert>
+#include "Timer.h"
 
 template<uint8_t lo, uint8_t hi>
 void testToggles()
