@@ -59,6 +59,8 @@ void testStatic()
 
 int main()
 {   
+    TimerProfiler::getInstance().beginProfiling("time.json");
+    ScopedTimer timer("main");
     testToggles<5,10>();
     test1();
     test2();

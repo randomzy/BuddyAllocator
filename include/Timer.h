@@ -1,7 +1,38 @@
+#ifndef __TIMER_H__
+#define __TIMER_H__
+
 #include <chrono>
 #include <cinttypes>
+#include <fstream>
+#include <iomanip>
+#include <string>
+#include <cstring>
 
-#define MAX_NAME_LEN
+#define PROFILING 1
+#if (PROFILING)
+#define PROFILING_START(session_name) TimerProfiler::getInstance().beginProfiling(session_name)
+#define PROFILING_END() TimerProfiler::getInstance().endProfiling()
+#define PROFILE_SCOPE(name) ScopedTimer timer(name)
+#define PROFILE_FUNCTION() PROFILE_SCOPE(__PRETTY_FUNCTION__)
+#else
+#define PROFILING_START(session_name)
+#define PROFILING_END(session_name)
+#define PROFILE_SCOPE(name)
+#define PROFILE_FUNCTION()
+#endif
+
+#define MAX_DESCRIPTOR_LEN 50
+
+//return time in nanoseconds
+static
+inline
+int64_t getntime()
+{
+    std::chrono::time_point<std::chrono::high_resolution_clock> now = std::chrono::high_resolution_clock::now();
+    auto duration = now.time_since_epoch();
+    int64_t nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+    return nanos;
+}
 
 // return time in microseconds
 static 
@@ -21,38 +52,102 @@ int64_t getmtime()
 {
     std::chrono::time_point<std::chrono::high_resolution_clock> now = std::chrono::high_resolution_clock::now();
     auto duration = now.time_since_epoch();
-    int64_t micros = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-    return micros;
+    int64_t millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    return millis;
 }
 
 struct ProfileResult
 {
-    int64_t * time_end;
-    int64_t * time_start;
-    char * name;
+    char const * name;
+    int64_t & start;
+    int64_t & duration;
 };
 
 class TimerProfiler
 {
 public:
-    void beginProfiling();
-    void endProfiling();
-    void writeProfile();
+    TimerProfiler & operator = (TimerProfiler const &) = delete;
+    TimerProfiler(TimerProfiler const &) = delete;
+
+    void beginProfiling(std::string const & filename)
+    {
+        if (!inSession) {
+            ofs.open(filename, std::ofstream::trunc);
+            writeHeader();
+            inSession = true;
+        } else {
+            std::cout << "[ERROR] Trying to start a new profiling session before closing the old one\n";
+        }
+    }
+    void endProfiling()
+    {
+        if (inSession) {
+            writeFooter();
+            ofs.flush();
+            ofs.close();
+            entries = 0;
+            inSession = false;
+        }
+    }
+    void writeProfile(ProfileResult const & result)
+    {
+        if (inSession) {
+            if (entries++ > 0)
+                ofs << ',';
+        ofs << std::fixed;
+        ofs << "{";
+        ofs << "\"cat\":\"function\",";
+        ofs << "\"dur\":" << result.duration/(double)1000 << ',';
+        ofs << "\"name\":\"" << result.name << "\",";
+        ofs << "\"ph\":\"X\",";
+        ofs << "\"pid\":0,";
+        ofs << "\"tid\":" << 0 << ",";
+        ofs << "\"ts\":" << result.start/(double)1000;
+        ofs << "}\n";
+
+        } else {
+            std::cout << "name: " << result.name << ", start_time: " << result.start << ", duration:" << result.duration << std::endl;
+        }
+    }
     static TimerProfiler & getInstance() {
-        static TimerProfiler instance; 
+        static TimerProfiler instance;
         return instance;
     };
 private:
-    TimerProfiler();
-    void writeHeader();
-    void writeFooter();
+    bool inSession = false;
+    int entries = 0;
+    std::ofstream ofs;
+    TimerProfiler() {};
+    ~TimerProfiler() 
+    {
+        endProfiling();
+    };
+    void writeHeader()
+    {
+        ofs << "{\"traceEvents\":[\n";
+    }
+    void writeFooter()
+    {
+        ofs << "],\"displayTimeUnit\": \"ns\"}";
+    }
 };
 
-class Timer
+class ScopedTimer
 {
-    Timer(){ start = getutime(); }
-    ~Timer(){ int64_t elapsed = getutime() - start;};
+public:
+    ScopedTimer(char const * _name = "")
+    {
+        strncpy(name, _name, MAX_DESCRIPTOR_LEN);
+        start = getntime();
+    }
+    ~ScopedTimer()
+    {
+        int64_t elapsed = getntime() - start;
+        TimerProfiler::getInstance().writeProfile(ProfileResult{this->name, start, elapsed});
+    };
 private:
     int64_t start;
-    char name[MAX_NAME_LEN];
+    char name[MAX_DESCRIPTOR_LEN];
 };
+
+#endif // __TIMER_H__
