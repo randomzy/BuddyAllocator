@@ -1,6 +1,19 @@
 #include "Allocator.h"
 #include <cassert>
+#include <random>
 #include "Timer.h"
+
+void * profile_malloc(size_t siz)
+{
+    PROFILE_SCOPE("malloc");
+    return malloc(siz);
+}
+
+void profile_free(void  * ptr)
+{
+    PROFILE_SCOPE();
+    free(ptr);
+}
 
 template<uint8_t lo, uint8_t hi>
 void testToggles()
@@ -50,6 +63,29 @@ void test2()
     assert(i == (1 << (hi-lo)));
 }
 
+void test3()
+{
+    const uint8_t lo = 8, hi = 25;
+    BuddyAllocator<lo,hi> allocator;
+    int seed = 0;
+    std::mt19937 gen(seed);
+    std::vector<void *> ptrs;
+    std::uniform_int_distribution<> distrib(8,15);
+    void * ptr = nullptr;
+    while(true) {
+        int size = distrib(gen);
+        ptr = allocator.allocate(1<<size);
+        profile_malloc(1<<size);
+        if (ptr == nullptr) break;
+        ptrs.push_back(ptr);
+        std::cout << "allocated " << (1<<size) << " bytes\n";
+    }
+    for (auto & ptr: ptrs) {
+        PROFILE_SCOPE("deallocate");
+        allocator.deallocate(ptr);
+    }
+}
+
 void testStatic()
 {
     BuddyAllocator<5,10> a1;
@@ -59,11 +95,11 @@ void testStatic()
 
 int main()
 {   
-    TimerProfiler::getInstance().beginProfiling("time.json");
-    ScopedTimer timer("main");
-    testToggles<5,10>();
-    test1();
-    test2();
-    testStatic();
+    PROFILING_START("time.json");
+    // testToggles<5,10>();
+    // test1();
+    // test2();
+    // testStatic();
+    test3();
     return 0;
 }
