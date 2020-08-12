@@ -56,11 +56,13 @@ int64_t getmtime()
     return millis;
 }
 
-struct ProfileResult
+enum class EventPhase {BEGIN = 'B', END = 'E', COMPLETE = 'X'};
+struct Event
 {
     char const * name;
-    int64_t & start;
-    int64_t & duration;
+    EventPhase phase;
+    int64_t start;
+    int64_t end;
 };
 
 class TimerProfiler
@@ -89,25 +91,32 @@ public:
             inSession = false;
         }
     }
-    void writeProfile(ProfileResult const & result)
+    void writeEvent(Event const & event)
     {
+        char ph = static_cast<char>(event.phase);
         if (inSession) {
             if (entries++ > 0)
                 ofs << ',';
-        ofs << std::fixed;
-        ofs << "{";
-        ofs << "\"cat\":\"function\",";
-        ofs << "\"dur\":" << result.duration/(double)1000 << ',';
-        ofs << "\"name\":\"" << result.name << "\",";
-        ofs << "\"ph\":\"X\",";
-        ofs << "\"pid\":0,";
-        ofs << "\"tid\":" << 0 << ",";
-        ofs << "\"ts\":" << result.start/(double)1000;
-        ofs << "}\n";
+            ofs << std::fixed;
+            ofs << "{";
+            ofs << "\"cat\":\"function\",";
+            ofs << "\"pid\":0,";
+            ofs << "\"tid\":" << 0 << ",";
+            ofs << "\"name\":\"" << event.name << "\",";
+            ofs << "\"ph\":\"" << ph << "\",";
+            if (event.phase == EventPhase::COMPLETE) {
+                ofs << "\"dur\":" << (event.end - event.start) << ',';
+            }
+            ofs << "\"ts\":" << event.start;
+            ofs << "}\n";
 
-        } else {
-            std::cout << "name: " << result.name << ", start_time: " << result.start << ", duration:" << result.duration << std::endl;
-        }
+            } else {
+                std::cout << std::fixed;
+                std::cout << "name: " << event.name
+                        << ", event_phase: " << ph 
+                        << ", start: " << event.start 
+                        << ", end: " << event.end  <<std::endl;
+            }
     }
     static TimerProfiler & getInstance() {
         static TimerProfiler instance;
@@ -142,8 +151,8 @@ public:
     }
     ~ScopedTimer()
     {
-        int64_t elapsed = getntime() - start;
-        TimerProfiler::getInstance().writeProfile(ProfileResult{this->name, start, elapsed});
+        int64_t end = getntime();
+        TimerProfiler::getInstance().writeEvent(Event{this->name, EventPhase::COMPLETE, start, end});
     };
 private:
     int64_t start;
