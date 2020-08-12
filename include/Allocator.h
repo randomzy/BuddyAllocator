@@ -41,11 +41,16 @@ public:
     void print_lists();
     void print_free();
     void print_split();
-private:
+// private:
     using ptr_t = void *;
+
+    struct Links
+    {
+        void * next;
+        void * prev;
+    };
     struct Pool
     {
-        ptr_t buddy_free[high_order+1];
         ptr_t buddy_busy[high_order+1];
         char heap[HEAP_SIZE];
         char split_table[TABLE_SIZE];
@@ -55,9 +60,9 @@ private:
     Pool * pool = nullptr;
 
     ptr_t heap_begin = nullptr;
-    ptr_t busy_list[high_order + 1];
-    char split_table[TABLE_SIZE];
-    char free_table[TABLE_SIZE];
+    ptr_t * busy_list = nullptr;
+    char * split_table = nullptr;
+    char * free_table = nullptr;
 
     bool is_split(size_t);
     void toggle_split(size_t);
@@ -66,17 +71,13 @@ private:
     size_t index_in_level(ptr_t ptr, int level);
     size_t index_in_tree(ptr_t ptr, int level);
 
-    size_t buddy_of(size_t buddy);
+    size_t buddy_id(size_t buddy);
     size_t lchild(size_t parent);
     size_t rchild(size_t parent);
     size_t parent(size_t child);
 
     void * buddy_address(void *, int);
-    struct Links
-    {
-        void * next;
-        void * prev;
-    };
+
     void insert_after(void * &, void *);
     void remove(void *);
 };

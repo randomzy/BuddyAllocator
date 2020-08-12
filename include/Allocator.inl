@@ -2,28 +2,39 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
-#include <Timer.h>
+#include "Timer.h"
+
+template<uint8_t lo, uint8_t hi>
+bool BuddyAllocator<lo,hi>::init()
+{
+    if (pool == nullptr) {
+        pool = static_cast<Pool*>(malloc(sizeof(Pool)));
+        if (pool != nullptr) {
+            heap_begin = pool->heap;
+            busy_list = pool->buddy_busy;
+            split_table = pool->split_table;
+            free_table = pool->free_table;
+            // memset(heap_begin,0,HEAP_SIZE);
+            memset(free_table,0,sizeof(Pool::free_table));
+            memset(split_table,0,sizeof(Pool::split_table));
+            memset(busy_list,0,sizeof(Pool::buddy_busy));
+            insert_after(busy_list[hi], heap_begin);
+        } else
+            return false;
+    }
+    return true;
+}
 
 template<uint8_t lo, uint8_t hi>
 BuddyAllocator<lo,hi>::BuddyAllocator()
-    : heap_begin(malloc(HEAP_SIZE))
 {
-    if (!heap_begin) {
-        //update errorCode
-    } else {
-        std::cout << HEAP_SIZE << std::endl << TABLE_SIZE << std::endl << LEVELS_CNT << std::endl;
-        memset(heap_begin,0,HEAP_SIZE);
-        memset(free_table,0,sizeof(free_table));
-        memset(split_table,0,sizeof(split_table));
-        memset(busy_list,0,sizeof(busy_list));
-        insert_after(busy_list[hi], heap_begin);
-    }
+    init();
 }
 
 template<uint8_t lo, uint8_t hi>
 BuddyAllocator<lo,hi>::~BuddyAllocator()
 {
-    free(heap_begin);
+    free(pool);
 }
 
 static
@@ -48,7 +59,7 @@ uint8_t log2_ceil(size_t n)
 template<uint8_t lo, uint8_t hi>
 void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 {
-    PROFILE_SCOPE("allocate");
+    PROFILE_FUNCTION();
     if (_size > HEAP_SIZE || _size == 0)
         return nullptr;
     uint8_t k = log2_ceil(_size);
@@ -136,7 +147,7 @@ size_t BuddyAllocator<lo,hi>::totalFree() const
         size_t block_cnt = 0;
         Links * block = static_cast<Links*>(busy_list[i]);
         while (block != nullptr) {
-            block = (Links*)block->next;
+            block = static_cast<Links*>(block->next);
             block_cnt++;
         }
         free_bytes += block_cnt*(1 << i);
@@ -198,7 +209,7 @@ size_t BuddyAllocator<lo,hi>::index_in_tree(ptr_t ptr, int level)
 }
 
 template<uint8_t lo, uint8_t hi>
-size_t BuddyAllocator<lo,hi>::buddy_of(size_t buddy)
+size_t BuddyAllocator<lo,hi>::buddy_id(size_t buddy)
 {
     return buddy + ((buddy & 1) << 1) - 1;
 }

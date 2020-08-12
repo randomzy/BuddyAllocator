@@ -25,3 +25,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(main src/main.cpp ${SOURCES})
 target_include_directories(main PUBLIC ${PUBLIC_INCLUDES})
+
+option(ENABLE_TESTS "enable testing" OFF)
+if (ENABLE_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

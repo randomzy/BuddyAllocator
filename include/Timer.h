@@ -13,7 +13,7 @@
 #define PROFILING_START(session_name) TimerProfiler::getInstance().beginProfiling(session_name)
 #define PROFILING_END() TimerProfiler::getInstance().endProfiling()
 #define PROFILE_SCOPE(name) ScopedTimer timer(name)
-#define PROFILE_FUNCTION() PROFILE_SCOPE(__PRETTY_FUNCTION__)
+#define PROFILE_FUNCTION() PROFILE_SCOPE(__FUNCTION__)
 #else
 #define PROFILING_START(session_name)
 #define PROFILING_END(session_name)
