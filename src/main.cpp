@@ -49,7 +49,7 @@ void test1()
     allocator.deallocate(p4);
     void * heap = allocator.allocate(10);
     assert(heap != nullptr);
-    assert(heap == allocator.heap_begin);
+    assert(heap == allocator.getHeap());
 }
 
 void test2()
@@ -80,10 +80,20 @@ void test3()
         ptrs.push_back(ptr);
         std::cout << "allocated " << (1<<size) << " bytes\n";
     }
+    std::cout << allocator.maxAllocatable() << " " << allocator.totalAllocated() << " " << allocator.totalFree() << std::endl;
+    allocator.allocate(allocator.maxAllocatable());
+    allocator.allocate(allocator.maxAllocatable());
+    allocator.allocate(allocator.maxAllocatable());
+    allocator.allocate(allocator.maxAllocatable());
+    allocator.allocate(allocator.maxAllocatable());
+    size_t i = allocator.maxAllocatable();
+    allocator.print_lists();
+    std::cout << allocator.maxAllocatable() << " " << allocator.totalAllocated() << " " << allocator.totalFree() << std::endl;
     for (auto & ptr: ptrs) {
         PROFILE_SCOPE("deallocate");
         allocator.deallocate(ptr);
     }
+    std::cout << allocator.maxAllocatable() << " " << allocator.totalAllocated() << " " << allocator.totalFree() << std::endl;
 }
 
 void testStatic()

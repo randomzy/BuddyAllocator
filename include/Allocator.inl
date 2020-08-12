@@ -28,7 +28,7 @@ BuddyAllocator<lo,hi>::~BuddyAllocator()
 
 static
 inline
-uint8_t log2(size_t n)
+uint8_t log2_floor(size_t n)
 {   
     uint8_t result = 0;
     while(n >>= 1)
@@ -42,14 +42,14 @@ static
 inline
 uint8_t log2_ceil(size_t n)
 {
-    return log2(n-1) + 1;
+    return log2_floor(n-1) + 1;
 }
 
 template<uint8_t lo, uint8_t hi>
 void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 {
     PROFILE_SCOPE("allocate");
-    if (_size > HEAP_SIZE)
+    if (_size > HEAP_SIZE || _size == 0)
         return nullptr;
     uint8_t k = log2_ceil(_size);
     k = (k > lo ? k : lo);
@@ -94,7 +94,7 @@ void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 template<uint8_t lo, uint8_t hi>
 void BuddyAllocator<lo,hi>::deallocate(void * ptr)
 {
-    if ((uintptr_t)ptr < (uintptr_t)heap_begin or uintptr_t(ptr) > (uintptr_t)heap_begin + HEAP_SIZE)
+    if ((uintptr_t)ptr < (uintptr_t)heap_begin || uintptr_t(ptr) > (uintptr_t)heap_begin + HEAP_SIZE)
         return;
     int n = hi;
     int block_id;
@@ -120,6 +120,45 @@ void BuddyAllocator<lo,hi>::deallocate(void * ptr)
         toggle_split(block_id);
     }
     insert_after(busy_list[i], block);
+}
+
+template<uint8_t lo, uint8_t hi>
+void const * const BuddyAllocator<lo,hi>::getHeap() const
+{
+    return heap_begin;
+}
+
+template<uint8_t lo, uint8_t hi>
+size_t BuddyAllocator<lo,hi>::totalFree() const
+{
+    size_t free_bytes = 0;
+    for (int i = lo; i <= hi; i++) {
+        size_t block_cnt = 0;
+        Links * block = static_cast<Links*>(busy_list[i]);
+        while (block != nullptr) {
+            block = (Links*)block->next;
+            block_cnt++;
+        }
+        free_bytes += block_cnt*(1 << i);
+    }
+    return free_bytes;
+}
+
+template<uint8_t lo, uint8_t hi>
+size_t BuddyAllocator<lo,hi>::maxAllocatable() const
+{
+    int i = hi;
+    for (; i >= lo; i--) {
+        if (busy_list[i] != nullptr)
+            return 1<<i;
+    }
+    return 0;
+}
+
+template<uint8_t lo, uint8_t hi>
+size_t BuddyAllocator<lo,hi>::totalAllocated() const
+{
+    return HEAP_SIZE - totalFree();
 }
 
 template<uint8_t lo, uint8_t hi>

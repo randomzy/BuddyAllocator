@@ -8,16 +8,7 @@
 
 enum class ERR_TYPE: uint8_t
 {
-    
-};
 
-
-template<uint8_t low_order, uint8_t high_order>
-class BuddyAllocatorBase
-{
-public:
-
-private:
 };
 
 template<uint8_t low_order, uint8_t high_order>
@@ -25,10 +16,14 @@ class BuddyAllocator
 {
 public:
     void * allocate(size_t size);
-    void deallocate(void * ptr, size_t size);
     void deallocate(void * ptr);
-    void init();
 
+    void const * const getHeap() const;
+    size_t totalFree() const;
+    size_t maxAllocatable() const;
+    size_t totalAllocated() const;
+
+    bool init();
     BuddyAllocator();
     ~BuddyAllocator();
     BuddyAllocator(BuddyAllocator const &) = delete;
@@ -42,7 +37,11 @@ public:
     static_assert(high_order < sizeof(void*)*CHAR_WIDTH - 1, "heap order cannot exceed max memory order");
     static_assert(1 << low_order >= 2*sizeof(void*), "minimum block must be able to store 2 addresses");
 
-// private:
+    //for debugging
+    void print_lists();
+    void print_free();
+    void print_split();
+private:
     using ptr_t = void *;
     struct Pool
     {
@@ -80,11 +79,6 @@ public:
     };
     void insert_after(void * &, void *);
     void remove(void *);
-
-//for debugging
-    void print_lists();
-    void print_free();
-    void print_split();
 };
 
 #include "Allocator.inl"
