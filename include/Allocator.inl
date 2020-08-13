@@ -2,7 +2,6 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
-#include "Timer.h"
 
 template<uint8_t lo, uint8_t hi>
 bool BuddyAllocator<lo,hi>::init()
@@ -59,7 +58,6 @@ uint8_t log2_ceil(size_t n)
 template<uint8_t lo, uint8_t hi>
 void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 {
-    PROFILE_FUNCTION();
     if (_size > HEAP_SIZE || _size == 0)
         return nullptr;
     uint8_t k = log2_ceil(_size);

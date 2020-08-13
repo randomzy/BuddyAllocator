@@ -14,6 +14,8 @@
 #define PROFILING_END() TimerProfiler::getInstance().endProfiling()
 #define PROFILE_SCOPE(name) ScopedTimer timer(name)
 #define PROFILE_FUNCTION() PROFILE_SCOPE(__FUNCTION__)
+#define PROFILE_EVENT_START(name) TimerProfiler::getInstance().writeEvent({name,EventPhase::BEGIN,getntime()})
+#define PROFILE_EVENT_END(name) TimerProfiler::getInstance().writeEvent({name,EventPhase::END,getntime()})
 #else
 #define PROFILING_START(session_name)
 #define PROFILING_END(session_name)
@@ -105,9 +107,9 @@ public:
             ofs << "\"name\":\"" << event.name << "\",";
             ofs << "\"ph\":\"" << ph << "\",";
             if (event.phase == EventPhase::COMPLETE) {
-                ofs << "\"dur\":" << (event.end - event.start) << ',';
+                ofs << "\"dur\":" << (event.end - event.start)/(double)1000 << ',';
             }
-            ofs << "\"ts\":" << event.start;
+            ofs << "\"ts\":" << event.start/(double)1000;
             ofs << "}\n";
 
             } else {
