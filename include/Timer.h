@@ -14,13 +14,15 @@
 #define PROFILING_END() TimerProfiler::getInstance().endProfiling()
 #define PROFILE_SCOPE(name) ScopedTimer timer(name)
 #define PROFILE_FUNCTION() PROFILE_SCOPE(__FUNCTION__)
-#define PROFILE_EVENT_START(name) TimerProfiler::getInstance().writeEvent({name,EventPhase::BEGIN,getntime()})
-#define PROFILE_EVENT_END(name) TimerProfiler::getInstance().writeEvent({name,EventPhase::END,getntime()})
+#define PROFILE_EVENT_START(name) Timer::eventStart(name)
+#define PROFILE_EVENT_END(name) Timer::eventEnd(name)
 #else
 #define PROFILING_START(session_name)
 #define PROFILING_END(session_name)
 #define PROFILE_SCOPE(name)
 #define PROFILE_FUNCTION()
+#define PROFILE_EVENT_START(name)
+#define PROFILE_EVENT_END(name)
 #endif
 
 #define MAX_DESCRIPTOR_LEN 50
@@ -160,5 +162,36 @@ private:
     int64_t start;
     char name[MAX_DESCRIPTOR_LEN];
 };
+
+class Timer
+{
+public:
+    static void eventStart(const char * name)
+    {
+        TimerProfiler::getInstance().writeEvent(Event{name,EventPhase::BEGIN,getntime(),0});
+    }
+    static void eventStart(void * ptr)
+    {
+        ptr_to_string(ptr);
+        Timer::eventStart(Timer::str);
+    }
+    static void eventEnd(const char * name)
+    {
+        TimerProfiler::getInstance().writeEvent(Event{name,EventPhase::END,getntime(),0});
+    }
+    static void eventEnd(void * ptr)
+    {
+        ptr_to_string(ptr);
+        Timer::eventEnd(Timer::str);
+    }
+private:
+static void ptr_to_string(void * ptr)
+{
+    sprintf(str, "%p", ptr); 
+}
+static char str[sizeof(void *)+1];
+};
+
+char Timer::str[sizeof(void *)+1];
 
 #endif // __TIMER_H__

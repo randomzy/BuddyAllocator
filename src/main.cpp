@@ -9,13 +9,15 @@ void * operator new(size_t size)
 {
     PROFILE_FUNCTION();
     void * ptr = allocator.allocate(size);
+    PROFILE_EVENT_START(ptr);
     return ptr;
 }
 
 void operator delete(void * ptr)
 {
     PROFILE_FUNCTION();
-    allocator.deallocate(ptr); 
+    allocator.deallocate(ptr);
+    PROFILE_EVENT_END(ptr);
 }
 
 int main()
