@@ -6,11 +6,6 @@
 #include <cstdlib>
 #include <cstring>
 
-enum class ERR_TYPE: uint8_t
-{
-
-};
-
 template<uint8_t low_order, uint8_t high_order>
 class BuddyAllocator
 {
@@ -52,6 +47,7 @@ public:
     struct Pool
     {
         ptr_t buddy_busy[high_order+1];
+        ptr_t buddy_free[high_order+1];
         char heap[HEAP_SIZE];
         char split_table[TABLE_SIZE];
         char free_table[TABLE_SIZE];
@@ -60,7 +56,8 @@ public:
     Pool * pool = nullptr;
 
     ptr_t heap_begin = nullptr;
-    ptr_t * busy_list = nullptr;
+    ptr_t * buddy_busy = nullptr;
+    ptr_t * buddy_free = nullptr;
     char * split_table = nullptr;
     char * free_table = nullptr;
 

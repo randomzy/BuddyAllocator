@@ -10,14 +10,16 @@ bool BuddyAllocator<lo,hi>::init()
         pool = static_cast<Pool*>(malloc(sizeof(Pool)));
         if (pool != nullptr) {
             heap_begin = pool->heap;
-            busy_list = pool->buddy_busy;
+            buddy_busy = pool->buddy_busy;
+            buddy_free = pool->buddy_free;
             split_table = pool->split_table;
             free_table = pool->free_table;
             // memset(heap_begin,0,HEAP_SIZE);
             memset(free_table,0,sizeof(Pool::free_table));
             memset(split_table,0,sizeof(Pool::split_table));
-            memset(busy_list,0,sizeof(Pool::buddy_busy));
-            insert_after(busy_list[hi], heap_begin);
+            memset(buddy_busy,0,sizeof(Pool::buddy_busy));
+            memset(buddy_free,0,sizeof(Pool::buddy_free));
+            insert_after(buddy_busy[hi], heap_begin);
         } else
             return false;
     }
@@ -55,6 +57,67 @@ uint8_t log2_ceil(size_t n)
     return log2_floor(n-1) + 1;
 }
 
+#ifndef DELAYED_RECOMBINATION
+// template<uint8_t lo, uint8_t hi>
+// void * BuddyAllocator<lo,hi>::allocate(size_t _size)
+// {
+//     if (_size > HEAP_SIZE || _size == 0)
+//         return nullptr;
+//     uint8_t k = log2_ceil(_size);
+//     k = (k > lo ? k : lo);
+//     uint8_t order = k;
+//     //fetch free address from free lists
+//     while(!buddy_busy[k]) {
+//         k++;
+//         if (k > hi)
+//             return nullptr;
+//     }
+//     ptr_t block = buddy_busy[k];
+//     remove(block);
+//     size_t block_id = index_in_tree(block, hi - k);
+//     while(k-- > order) {
+//         toggle_split(block_id);
+//         toggle_free(block_id);
+//         void * buddy_addr = buddy_address(block, k); //(void*)(uintptr_t(block) + ((uintptr_t)1 << k))
+//         block_id = index_in_tree(block, hi - k); //lchild(block_id);
+//         insert_after(buddy_busy[k], buddy_addr);
+//     }
+//     toggle_free(block_id);
+//     return block;
+// }
+
+// template<uint8_t lo, uint8_t hi>
+// void BuddyAllocator<lo,hi>::deallocate(void * ptr)
+// {
+//     if ((uintptr_t)ptr < (uintptr_t)heap_begin || uintptr_t(ptr) > (uintptr_t)heap_begin + HEAP_SIZE)
+//         return;
+//     int n = hi;
+//     int block_id;
+//     //find size of block (and block_id)
+//     while (n > 0) {
+//         block_id = index_in_tree(ptr,hi-n);
+//         if (!is_split(block_id))
+//             break;
+//         --n;
+//     }
+//     void * block = ptr;
+//     int i = n;
+//     for (; i < hi; i++) {
+//         toggle_free(block_id);
+//         if (pair_free(block_id))
+//             break;
+//         void * buddy_of_block = buddy_address(block, i);
+//         remove(buddy_of_block);
+//         if (buddy_of_block < block ) {
+//             block = buddy_of_block;
+//         }
+//         block_id = parent(block_id);
+//         toggle_split(block_id);
+//     }
+//     insert_after(buddy_busy[i], block);
+// }
+
+#else
 template<uint8_t lo, uint8_t hi>
 void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 {
@@ -63,25 +126,108 @@ void * BuddyAllocator<lo,hi>::allocate(size_t _size)
     uint8_t k = log2_ceil(_size);
     k = (k > lo ? k : lo);
     uint8_t order = k;
-    //fetch free address from free lists
-    while(!busy_list[k]) {
-        k++;
-        if (k > hi)
-            return nullptr;
-    }
-    ptr_t block = busy_list[k];
-    remove(block);
+    void * block = buddy_busy[k];
     size_t block_id = index_in_tree(block, hi - k);
+    if (block) {
+        toggle_free(block_id);
+        remove(block);
+        return block;
+    }
+    block = buddy_free[k];
+    block_id = index_in_tree(block, hi - k);
+    if (block){
+        void * buddy_addr = buddy_address(block, k);
+        insert_after(buddy_busy[k], buddy_addr);
+        toggle_free(block_id);
+        remove(block);
+        return block;
+    }
+    block = buddy_free[k-1];
+    block_id =  index_in_tree(block, hi - k - 1);
+    if (block) {
+        toggle_split(parent(block_id));
+        remove(block);
+        return block;
+    }
+    //fetch free address from free lists
+    while(!buddy_busy[k] && !buddy_free[k]) {
+        k++;
+        if (k > hi) {
+            for(int k = lo; k < order; k++) {
+                while(buddy_free[k]) {
+                    void * block = buddy_free[k];
+                    size_t block_id = index_in_tree(block, k);
+                    remove(block);
+                    //move to collapsed
+                    block_id = parent(block_id);
+                    toggle_split(block_id);
+                    toggle_free(block_id);
+                    size_t buddy_index = buddy_id(block_id);
+                    void * buddy_addr = buddy_address(block, k+1);
+                    if (!pair_free(buddy_index)) {
+                        remove(buddy_addr);
+                        if (block > buddy_addr) {
+                            block = buddy_addr;
+                        }
+                        insert_after(buddy_free[k+1], block);
+                    } else {
+                        insert_after(buddy_busy[k+1], block);
+                    }
+                }
+            }
+        }
+    }
+    if (buddy_free[k]) {
+        block = buddy_free[k];
+        void * buddy_addr = buddy_address(block, k);
+        insert_after(buddy_busy[k], buddy_addr);
+        remove(block);
+    } else if (buddy_busy[k]){
+        block = buddy_busy[k];
+    } else {
+        return nullptr;
+    }
+    block_id = index_in_tree(block, hi - k);
+    remove(block);
     while(k-- > order) {
         toggle_split(block_id);
         toggle_free(block_id);
         void * buddy_addr = buddy_address(block, k); //(void*)(uintptr_t(block) + ((uintptr_t)1 << k))
         block_id = index_in_tree(block, hi - k); //lchild(block_id);
-        insert_after(busy_list[k], buddy_addr);
+        insert_after(buddy_busy[k], buddy_addr);
     }
     toggle_free(block_id);
+    //recombine all free blocks
     return block;
 }
+
+template<uint8_t lo, uint8_t hi>
+void BuddyAllocator<lo,hi>::deallocate(void * ptr)
+{
+    if ((uintptr_t)ptr < (uintptr_t)heap_begin || uintptr_t(ptr) > (uintptr_t)heap_begin + HEAP_SIZE)
+        return;
+    int n = hi;
+    int block_id;
+    //find size of block (and block_id)
+    while (n > 0) {
+        block_id = index_in_tree(ptr,hi-n);
+        if (!is_split(block_id))
+            break;
+        --n;
+    }
+    toggle_free(block_id); // 0 iff both are busy, 1 iff only one is free
+    if (!pair_free(block_id)) { //if buddy is free
+        void * buddy_addr = buddy_address(ptr, n);
+        remove(buddy_addr);
+        if (ptr > buddy_addr) {
+            ptr = buddy_addr;
+        }
+        insert_after(buddy_free[n], ptr);
+    } else {
+        insert_after(buddy_busy[n], ptr);
+    }
+}
+#endif
 
 // void deallocate_rec(void * block, size_t block_id)
 // {
@@ -101,37 +247,6 @@ void * BuddyAllocator<lo,hi>::allocate(size_t _size)
 // }
 
 template<uint8_t lo, uint8_t hi>
-void BuddyAllocator<lo,hi>::deallocate(void * ptr)
-{
-    if ((uintptr_t)ptr < (uintptr_t)heap_begin || uintptr_t(ptr) > (uintptr_t)heap_begin + HEAP_SIZE)
-        return;
-    int n = hi;
-    int block_id;
-    //find size of block (and block_id)
-    while (n > 0) {
-        block_id = index_in_tree(ptr,hi-n);
-        if (!is_split(block_id))
-            break;
-        --n;
-    }
-    void * block = ptr;
-    int i = n;
-    for (; i < hi; i++) {
-        toggle_free(block_id);
-        if (pair_free(block_id))
-            break;
-        void * buddy_of_block = buddy_address(block, i);
-        remove(buddy_of_block);
-        if (buddy_of_block < block ) {
-            block = buddy_of_block;
-        }
-        block_id = parent(block_id);
-        toggle_split(block_id);
-    }
-    insert_after(busy_list[i], block);
-}
-
-template<uint8_t lo, uint8_t hi>
 void const * const BuddyAllocator<lo,hi>::getHeap() const
 {
     return heap_begin;
@@ -143,7 +258,7 @@ size_t BuddyAllocator<lo,hi>::totalFree() const
     size_t free_bytes = 0;
     for (int i = lo; i <= hi; i++) {
         size_t block_cnt = 0;
-        Links * block = static_cast<Links*>(busy_list[i]);
+        Links * block = static_cast<Links*>(buddy_busy[i]);
         while (block != nullptr) {
             block = static_cast<Links*>(block->next);
             block_cnt++;
@@ -158,7 +273,7 @@ size_t BuddyAllocator<lo,hi>::maxAllocatable() const
 {
     int i = hi;
     for (; i >= lo; i--) {
-        if (busy_list[i] != nullptr)
+        if (buddy_busy[i] != nullptr)
             return 1<<i;
     }
     return 0;
@@ -263,7 +378,7 @@ void BuddyAllocator<lo,hi>::print_lists()
 {
     for (int i = 0; i < hi; i++) {
         std::cout << "free_list[" << std::dec << i << "]: ";
-        Links * current = static_cast<Links*>(busy_list[i]);
+        Links * current = static_cast<Links*>(buddy_busy[i]);
         while (current != nullptr) {
             std::cout << std::hex << (uintptr_t)current << " ";
             current = static_cast<Links*>(current->next);

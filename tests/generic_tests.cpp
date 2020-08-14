@@ -81,12 +81,24 @@ void random_allocations()
         if (ptr == nullptr) break;
         ptrs.push_back(ptr);
     }
+    for (auto const & ptr: ptrs) {
+        allocator.deallocate(ptr);
+    }
+    void * heap = allocator.allocate(allocator.HEAP_SIZE);
+    assert(allocator.getHeap() == heap);
+    // assert(allocator.maxAllocatable() == 0);
+    // while(true) {
+    //     int size = distrib(gen);
+    //     ptr = allocator.allocate(1<<size);
+    //     if (ptr == nullptr) break;
+    //     ptrs.push_back(ptr);
+    // };
 }
 
 int main()
 {
-    test_toggles<10,15>();
-    allocate4_deallocate4();
+    // test_toggles<10,15>();
+    // allocate4_deallocate4();
     allocate_all<8,15>();
     random_allocations<8,25>();
     return 0;

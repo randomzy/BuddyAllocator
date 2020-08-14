@@ -26,8 +26,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(main src/main.cpp ${SOURCES})
 target_include_directories(main PUBLIC ${PUBLIC_INCLUDES})
 
-# option(ENABLE_TESTS "enable testing" OFF)
+option(DELAYED_RECOMBINATION "switched between buddy implementations" OFF)
+
+# if(DEALYED_RECOMBINATION)
+    add_definitions(-DDELAYED_RECOMBINATION)
+# endif()
+
+# option(ENABLE_TESTS "enable testing" ON)
 # if (ENABLE_TESTS)
-#     enable_testing()
-#     add_subdirectory(tests)
+    enable_testing()
+    add_subdirectory(tests)
 # endif()
